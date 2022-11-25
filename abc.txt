@@ -1,0 +1,82 @@
+#Server: Add orderNormal api
+@startuml
+autonumber
+participant Client
+participant Controller
+participant Service
+participant Repo
+participant Mapper
+
+Client -> Controller: send add order normal request
+    activate Controller
+    Controller -> Controller: isValid = valid orderNormalRequest Object
+    note right: json object is formed orderNormalRequest flowing design
+
+    alt isValid = false
+        Controller -> Controller: throw failBussinessException: E0001
+        note right: It will be handled by failBussinessException
+    end
+    
+        Controller -> Service: add new order normal
+            group Validate orderNormalRequest info
+                activate Service
+                Service -> Repo: Check exits user customer and staff in order
+                activate Repo
+                Repo --> Service: exist : boolean
+                deactivate Repo
+                    alt exist = false
+                        Service -> Service: return failBussinessException: E0001
+                    end
+                Service -> Repo: Check available products in order
+                activate Repo
+                Repo --> Service: available : boolean
+                deactivate Repo
+                    alt exist = false
+                        Service -> Service: return failBussinessException: E0001
+                    end
+                Service -> Service: Calcule summation of price order
+            end
+
+            group Save new order normal into database
+                Service -> Mapper: Parse validated OrderNormalRequest to OrderNormal
+                activate Mapper
+                Mapper --> Service: OrderNormal
+                deactivate Mapper
+                Service -> Mapper: Parse validated list OrderLineRequest to list OrderLine
+                activate Mapper
+                Mapper --> Service: list OrderLine
+                deactivate Mapper
+                Service -> Repo: Insert OrderNormal to database
+                activate Repo
+                Repo --> Service: OrderNormal saved
+                deactivate Repo
+                    alt OrderNormal saved = null
+                        Service -> Service: return failBussinessException: E0001
+                    end
+                Service -> Repo: Insert list OrderLine to database base on orderId
+                activate Repo
+                Repo --> Service: list OrderLine saved
+                deactivate Repo
+                    alt list OrderLine saved = null or empty
+                        Service -> Service: return failBussinessException: E0001
+                    end
+            end
+
+        Service --> Controller: Object
+        deactivate Service
+        
+        opt response of Service
+            alt Returned object is normal
+                Controller -> Controller: return success object
+            end
+            alt Returned object is failBussinessException
+                Controller -> Controller: throw failBussinessException
+            end
+            alt Returned object is Exception
+                Controller -> Controller: throw fail Exception
+            end
+        end
+    Controller --> Client: Response
+    deactivate Contrller
+
+@enduml
